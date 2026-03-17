@@ -48,7 +48,15 @@ jobs:
           docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest which httpd
 
           echo "=== PHP extensions check ==="
-          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -m | grep -E "intl|mysqli|curl|imap|mailparse|gd|mbstring"
+          required_extensions="intl mysqli curl imap mailparse gd mbstring"
+          for ext in $required_extensions; do
+            echo "Checking PHP extension: $ext"
+            if ! docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -m | grep -q "$ext"; then
+              echo "Missing required PHP extension: $ext"
+              exit 1
+            fi
+          done
+          echo "All required PHP extensions are present."
 
           echo "=== Entrypoint exists and is executable ==="
           docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest test -x /usr/bin/entrypoint.sh && echo "OK"
