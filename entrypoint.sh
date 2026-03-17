@@ -1,6 +1,13 @@
 #!/bin/ash
 
 sed -i "s/^Listen.*/Listen $ITFLOW_PORT/g" /etc/apache2/httpd.conf
+
+# Ensure index.php is recognized as a directory index file
+sed -i 's/DirectoryIndex index\.html/DirectoryIndex index.php index.html/g' /etc/apache2/httpd.conf
+
+# Apply log level from environment variable
+sed -i "s/^LogLevel.*/LogLevel $ITFLOW_LOG_LEVEL/g" /etc/apache2/httpd.conf
+
 rm -rf /var/www/localhost/htdocs/index.html
 # if itflow is not downloaded, perform the download after the volume mounting process within DockerFile is complete.
 if [[ -f /var/www/localhost/htdocs/index.php ]]; then 
