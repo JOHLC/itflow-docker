@@ -1,4 +1,4 @@
-name: Build and Push Multi-Platform Docker Image
+name: Build and Push ARM64 Docker Image
 
 on:
   push:
@@ -13,24 +13,13 @@ on:
 jobs:
   test-arm64:
     name: Test ARM64 Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Log in to Docker Hub
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          image: tonistiigi/binfmt:qemu-v7.0.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -45,36 +34,40 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Test ARM64 image - architecture and PHP
+      - name: Test ARM64 image
         run: |
+          set -e
+
           echo "=== Architecture check ==="
-          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest uname -m | grep -q aarch64 && echo "ARM64 confirmed"
+          docker run --rm itflow-arm64-ci-test:latest uname -m | grep -q aarch64
+          echo "ARM64 confirmed"
 
           echo "=== PHP version check ==="
-          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -v
+          docker run --rm itflow-arm64-ci-test:latest php84 -v
 
           echo "=== Apache (httpd) binary check ==="
-          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest which httpd
+          docker run --rm itflow-arm64-ci-test:latest which httpd
 
           echo "=== PHP extensions check ==="
           required_extensions="intl mysqli curl imap mailparse gd mbstring"
           for ext in $required_extensions; do
             echo "Checking PHP extension: $ext"
-            if ! docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -m | grep -q "$ext"; then
+            docker run --rm itflow-arm64-ci-test:latest php84 -m | grep -qi "^${ext}$" || {
               echo "Missing required PHP extension: $ext"
               exit 1
-            fi
+            }
           done
           echo "All required PHP extensions are present."
 
           echo "=== Entrypoint exists and is executable ==="
-          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest test -x /usr/bin/entrypoint.sh && echo "OK"
+          docker run --rm itflow-arm64-ci-test:latest test -x /usr/bin/entrypoint.sh
+          echo "Entrypoint OK"
 
           echo "=== All ARM64 tests passed ==="
 
   build-and-push:
-    name: Build and Push Multi-Platform Image
-    runs-on: ubuntu-latest
+    name: Build and Push ARM64 Image
+    runs-on: ubuntu-24.04-arm
     needs: test-arm64
     if: github.event_name != 'pull_request'
     permissions:
@@ -85,16 +78,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          image: tonistiigi/binfmt:qemu-v7.0.0
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -103,18 +92,18 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: itfloworg/itflow
+          images: ghcr.io/johlc/itflow-docker
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push ARM64 image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
