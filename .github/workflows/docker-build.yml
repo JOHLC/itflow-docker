@@ -1,0 +1,111 @@
+name: Build and Push Multi-Platform Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-arm64:
+    name: Test ARM64 Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARM64 image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: itflow-arm64-ci-test:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test ARM64 image - architecture and PHP
+        run: |
+          echo "=== Architecture check ==="
+          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest uname -m | grep -q aarch64 && echo "ARM64 confirmed"
+
+          echo "=== PHP version check ==="
+          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -v
+
+          echo "=== Apache (httpd) binary check ==="
+          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest which httpd
+
+          echo "=== PHP extensions check ==="
+          required_extensions="intl mysqli curl imap mailparse gd mbstring"
+          for ext in $required_extensions; do
+            echo "Checking PHP extension: $ext"
+            if ! docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest php84 -m | grep -q "$ext"; then
+              echo "Missing required PHP extension: $ext"
+              exit 1
+            fi
+          done
+          echo "All required PHP extensions are present."
+
+          echo "=== Entrypoint exists and is executable ==="
+          docker run --rm --platform linux/arm64 itflow-arm64-ci-test:latest test -x /usr/bin/entrypoint.sh && echo "OK"
+
+          echo "=== All ARM64 tests passed ==="
+
+  build-and-push:
+    name: Build and Push Multi-Platform Image
+    runs-on: ubuntu-latest
+    needs: test-arm64
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: itfloworg/itflow
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

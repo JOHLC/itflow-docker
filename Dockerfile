@@ -1,5 +1,3 @@
-# DO NOT USE THIS. IT WON'T WORK YET
-
 FROM alpine:3.21
 
 LABEL dockerfile.version="v25.05" dockerfile.release-date="2025-06-05"
