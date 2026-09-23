@@ -34,6 +34,7 @@ RUN apk add \
     git\
     apache2\
     php84\
+    curl\
     whois\
     bind-tools\
     tzdata
