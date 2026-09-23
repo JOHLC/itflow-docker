@@ -36,7 +36,7 @@ Please see the wiki: https://docs.itflow.org/installation_docker
 ## ITFlow Only (no Reverse Proxy) 
 1. Copy [docker-compose.yml](https://raw.githubusercontent.com/itflow-org/itflow-docker/main/docker-compose.yml) and [Dockerfile](https://raw.githubusercontent.com/itflow-org/itflow-docker/main/Dockerfile) to a directory.
 2. Within docker-compose.yml, adjust the ```environment:``` variables such as ITFLOW_NAME, ITFLOW_URL and ITFLOW_REPO (to your own MSPs fork).
-3. Copy the [.env](https://raw.githubusercontent.com/itflow-org/itflow-docker/main/.env) file to the same directory.
+3. Copy `.env.example` to `.env` in the same directory, then update the values for your environment.
 > Enter your timezone, root domain and database password within this file. You can avoid this step entirely by adding the information to your docker-compose.yml file directly instead. Or being safe, by using docker secrets.
 4. Run ```docker compose up -d```
 5. Go to your domain. You should be redirected to setup.php. Enter server information correlated to your set up .env and docker-compose.yml files.
