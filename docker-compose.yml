@@ -20,15 +20,15 @@ services:
   itflow:
     hostname: itflow
     container_name: itflow
-    # Comment out image for DockerHub image, use build for local DockerFile if you prefer to build from base
-    image: itfloworg/itflow:latest
+    # Use the image built and published by this repository.
+    image: ghcr.io/johlc/itflow-docker:latest
     #build: 
       #context: .
       #dockerfile: Dockerfile
     restart: unless-stopped
     depends_on: 
       itflow-db:
-          condition: service_healthy  # ← waits for DB to be ready, not just started
+          condition: service_healthy
     networks:
       - wan
       - itflow-db
@@ -87,7 +87,7 @@ services:
         environment:
           - MYSQL_DATABASE=itflow
           - MYSQL_USER=itflow
-          - MARIADB_PASSWORD=$ITFLOW_DB_PASS
+          - MYSQL_PASS=$ITFLOW_DB_PASS
           - TZ=$TZ
           - MYSQL_HOST=itflow-db
           - MAX_BACKUPS=3 #change to your liking
